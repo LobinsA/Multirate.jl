@@ -46,7 +46,7 @@ end
 #               band-pass & band-reject
 # FIRResponse = The response of the filter: LOWPASS, BANDPASS, HIGHPASS, BANDSTOP
 
-function firprototype( numtaps::Integer, F::Union(Real, Vector{Real}); response::FIRResponse = LOWPASS )
+function firprototype( numtaps::Integer, F::Union{Real, Vector{Real}}; response::FIRResponse = LOWPASS )
     M = numtaps-1
     if response == LOWPASS
         prototype = [ 2*F*sinc(2*F*(n-M/2)) for n = 0:M ]
@@ -73,7 +73,7 @@ end
 #                        |    | |  \ |__/ |___ ___]                            #
 #==============================================================================#
 
-function firdes( numtaps::Integer, cutoff::Union(Real, Vector), windowfunction::Function; response::FIRResponse = LOWPASS, samplerate = 1.0, beta = 6.75 )
+function firdes( numtaps::Integer, cutoff::Union{Real, Vector{Real}}, windowfunction::Function; response::FIRResponse = LOWPASS, samplerate = 1.0, beta = 6.75 )
 
     cutoff    = cutoff ./ samplerate
     prototype = firprototype( numtaps, cutoff, response=response )
@@ -87,7 +87,7 @@ function firdes( numtaps::Integer, cutoff::Union(Real, Vector), windowfunction::
 
 end
 
-function firdes( cutoff::Union(Real, Vector{Real}), transitionwidth::Real, stopbandAttenuation::Real = 60; response::FIRResponse = LOWPASS, samplerate = 1.0 )
+function firdes( cutoff::Union{Real, Vector{Real}}, transitionwidth::Real, stopbandAttenuation::Real = 60; response::FIRResponse = LOWPASS, samplerate = 1.0 )
 
     ( numtaps, β ) = kaiserlength( transitionwidth, stopbandAttenuation; samplerate = samplerate )
     firdes( numtaps, cutoff, kaiser, response = response, samplerate=samplerate, beta=β )

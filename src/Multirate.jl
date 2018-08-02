@@ -1,8 +1,5 @@
 module Multirate
 
-
-include( "enum.jl" )
-
 import Base: filt, filt!, reset
 import Polynomials: Poly, polyval
 

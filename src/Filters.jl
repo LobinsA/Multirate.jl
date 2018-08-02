@@ -4,11 +4,11 @@
 #        |    |   |    |___ ___]    /      |___ |__| | \| ___]  |  |  \ .      #
 #==============================================================================#
 
-typealias PFB{T} Matrix{T}          # polyphase filter bank
-typealias PNFB{T} Vector{Poly{T}}   # polynomial filter bank (used for farrow filter)
+PFB{T} = Matrix{T}          # polyphase filter bank
+PNFB{T} = Vector{Poly{T}}   # polynomial filter bank (used for farrow filter)
 
-abstract Filter
-abstract FIRKernel
+abstract type Filter end
+abstract type FIRKernel end
 # TODO: all kernels: add field original taps
 
 # Single rate FIR kernel
@@ -180,7 +180,7 @@ function FIRFilter( h::Vector, resampleRatio::Rational = 1//1 )
 end
 
 # Constructor for arbitrary resampling filter (polyphase interpolator w/ intra-phase linear interpolation )
-function FIRFilter( h::Vector, rate::FloatingPoint, N𝜙::Integer = 32 )
+function FIRFilter( h::Vector, rate::AbstractFloat, N𝜙::Integer = 32 )
     rate > 0.0 || error( "rate must be greater than 0" )
     kernel     = FIRArbitrary( h, rate, N𝜙 )
     historyLen = kernel.tapsPer𝜙 - 1
@@ -189,7 +189,7 @@ function FIRFilter( h::Vector, rate::FloatingPoint, N𝜙::Integer = 32 )
 end
 
 # Constructor for farrow filter (polyphase interpolator w/ polynomial genrated intra-phase taps )
-function FIRFilter( h::Vector, rate::FloatingPoint, N𝜙::Integer, polyorder::Integer )
+function FIRFilter( h::Vector, rate::AbstractFloat, N𝜙::Integer, polyorder::Integer )
     rate > 0.0 || error( "rate must be greater than 0" )
     kernel     = FIRFarrow( h, rate, N𝜙, polyorder )
     historyLen = kernel.tapsPer𝜙 - 1
@@ -207,7 +207,7 @@ end
 # Sets the kernel's phase (𝜙Idx+α).
 #   Valid input is [0, 1]
 
-function setphase( kernel::Union(FIRInterpolator, FIRRational), 𝜙::Number )
+function setphase( kernel::Union{FIRInterpolator, FIRRational}, 𝜙::Number )
     @assert zero(𝜙) <= 𝜙 <= one(𝜙)
     kernel.𝜙Idx = int(𝜙Idx)
     return kernel.𝜙Idx
@@ -871,13 +871,13 @@ function filt( h::Vector, x::Vector, ratio::Rational = 1//1 )
 end
 
 # Arbitrary resampling with polyphase interpolation and two neighbor lnear interpolation.
-function filt( h::Vector, x::Vector, rate::FloatingPoint, N𝜙::Integer = 32 )
+function filt( h::Vector, x::Vector, rate::AbstractFloat, N𝜙::Integer = 32 )
     self = FIRFilter( h, rate, N𝜙 )
     filt( self, x )
 end
 
 # Arbitrary resampling with polyphase interpolation and polynomial generated intra-phase taps.
-function filt( h::Vector, x::Vector, rate::FloatingPoint, N𝜙::Integer, polyorder::Integer )
+function filt( h::Vector, x::Vector, rate::AbstractFloat, N𝜙::Integer, polyorder::Integer )
     self = FIRFilter( h, rate, N𝜙, polyorder )
     filt( self, x )
 end
