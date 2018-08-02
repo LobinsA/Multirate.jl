@@ -1,7 +1,8 @@
 # Borrowed from http://www.mathworks.com/help/signal/ref/upfirdn.html
 
-using  Winston
-import Multirate
+import DSP: kaiser
+import Multirate: firdes, filt
+import PyPlot
 
 sampleRate    = 48000
 interpolation = 147
@@ -9,18 +10,17 @@ decimation    = 160
 ratio         = interpolation  // decimation
 Nt            = 24*interpolation
 
-h = Multirate.firdes( Nt, 0.5/interpolation, Multirate.kaiser, beta = 7.8562  )
+h = firdes( Nt, 0.5/interpolation, kaiser, beta = 7.8562  ) .* interpolation
 
 n = 0:10239
-x = sin(2*pi*1e3/sampleRate*n)
-y = Multirate.filt( h, x, ratio )
+x = sin.(2*pi*1e3/sampleRate*n)
+y = filt( h, x, ratio )
 
 tOriginal = n[1:49]./sampleRate
 xOriginal = x[1:49]
 tResamp   = n[1:45]./(sampleRate*ratio)
-xResamp   = y[13:57]
+xResamp   = y[12:56]
 
-display( stem( tOriginal, xOriginal, "b." ) )
-hold( true )
-display( stem( tResamp, xResamp, "r." ) )
-hold( false )
+PyPlot.stem( tOriginal, xOriginal, linefmt = "b-", markerfmt = "b." )
+PyPlot.stem( tResamp, xResamp, linefmt = "r-", markerfmt = "r." )
+PyPlot.show()

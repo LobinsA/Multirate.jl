@@ -1,7 +1,7 @@
-using Multirate
-using DSP
+import Multirate
+import DSP
 
-function time_firfarrow{Th,Tx}( self::FIRFilter{FIRFarrow{Th}}, x::Vector{Tx} )
+function time_firfarrow{Th,Tx}( self::Multirate.FIRFilter{Multirate.FIRFarrow{Th}}, x::Vector{Tx} )
     kernel = self.kernel
     xLen   = length( x )
     println( "\nFIRFarrow speed test" )
@@ -20,7 +20,7 @@ function time_firfarrow{Th,Tx}( self::FIRFilter{FIRFarrow{Th}}, x::Vector{Tx} )
 end
 
 
-function time_firarbitrary{Th,Tx}( self::FIRFilter{FIRArbitrary{Th}}, x::Vector{Tx} )
+function time_firarbitrary{Th,Tx}( self::Multirate.FIRFilter{Multirate.FIRArbitrary{Th}}, x::Vector{Tx} )
     println( "\nFIRArbitrary Speed Test" )
     @printf( "\tresampling rate  %f\n", resampleRate )
     @printf( "\tx type           %s\n", string(Tx) )
@@ -42,12 +42,12 @@ polyorder    = 4                                             # Our taps will tra
 Th           = Float32
 cutoffFreq   = min( 0.45/N𝜙, resampleRate/N𝜙 )               # N𝜙 is also the integer interpolation, so set cutoff frequency accordingly
 hLen         = tapsPer𝜙*N𝜙                                   # Total number of filter taps
-h            = firdes( hLen, cutoffFreq, DSP.kaiser ) .* N𝜙  # Generate filter taps and scale by polyphase interpolation (N𝜙)
+h            = Multirate.firdes( hLen, cutoffFreq, DSP.kaiser ) .* N𝜙  # Generate filter taps and scale by polyphase interpolation (N𝜙)
 xLen         = 10_000_000                                    # Number of signal samples
 
 for resampleRate in ( 1.0, 1/2.123456789 ), Tx in ( Float32, Float64, Complex64, Complex128 )
-    farrowfilt = FIRFilter( h, resampleRate, N𝜙, polyorder ) # Construct a FIRFilter{FIRFarrow} object
-    arbfilt    = FIRFilter( h, resampleRate, N𝜙 )
+    farrowfilt = Multirate.FIRFilter( h, resampleRate, N𝜙, polyorder ) # Construct a FIRFilter{FIRFarrow} object
+    arbfilt    = Multirate.FIRFilter( h, resampleRate, N𝜙 )
     x          = rand( Tx, xLen )
     time_firfarrow( farrowfilt, x )
     time_firarbitrary( arbfilt, x )

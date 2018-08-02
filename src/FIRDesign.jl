@@ -18,7 +18,7 @@
 function kaiserlength( transition::Real, attenuation::Real = 60; samplerate = 1.0 )
 
     transition = transition./samplerate
-    numtaps      = iceil(( attenuation - 7.95 )/( 2*π*2.285*transition ))
+    numtaps      = ceil( Int, ( attenuation - 7.95 )/( 2*π*2.285*transition ))
 
     if attenuation > 50
         β = 0.1102*( attenuation - 8.7 )

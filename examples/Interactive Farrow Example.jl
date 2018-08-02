@@ -1,21 +1,20 @@
-using Multirate
-using DSP
-using GtkInteract
-using Winston
+import Multirate: firdes, FIRFilter, FIRFarrow, setphase, filt
+import DSP
+using Interact, Winston
 
 N𝜙         = 32                                           # Number of polyphase partitions
 tapsPer𝜙   = 12                                           # N𝜙 * tapsPer𝜙 will be the length of out protoyTimepe filter taps
 ƒsIn       = 1.0                                          # Input sample rate
-ƒsOut      = π                                            # Input sample rate
+ƒsOut      = π                                            # Output sample rate
 ratio      = ƒsOut/ƒsIn
 polyorder  = 4                                            # Our taps will tranformed into
 xƒ1        = 0.125                                        # First singal frequency
 xƒ2        = 0.3                                          # Second signal frequency
 xLen       = 20                                           # Number of signal samples
-xTime      = [0:xLen-1]                                   # Signal time vector
-x          = cos(2*pi*xƒ1*xTime)
-x          = x + 0.5sin(2*pi*xƒ2*xTime*pi)                # Create the two signals and add them
-x          = x + cos(0.1*xTime)
+xTime      = (0:xLen-1)                                   # Signal time vector
+x          = cos.(2*pi*xƒ1*xTime)
+x          = x + 0.5sin.(2*pi*xƒ2*xTime*pi)               # Create the two signals and add them
+x          = x + cos.(0.1*xTime)
 cutoffFreq = min( 0.45/N𝜙, ratio/N𝜙 )                     # N𝜙 is also the integer interpolation, so set cutoff frequency accordingly
 hLen       = tapsPer𝜙*N𝜙                                  # Tintal number of filter taps
 h          = firdes( hLen, cutoffFreq, DSP.kaiser ) .* N𝜙 # Generate filter taps and scale by polyphase interpolation (N𝜙)

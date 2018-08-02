@@ -4,8 +4,8 @@ export naivefilt
 # Naive rational resampler
 function naivefilt( h::Vector, x::Vector, resamplerate::Rational = 1//1 )
 
-    upfactor     = num( resamplerate )
-    downfactor   = den( resamplerate )
+    upfactor     = numerator( resamplerate )
+    downfactor   = denominator( resamplerate )
     xLen         = length( x )
     xZeroStuffed = zeros( eltype(x), length( x ) * upfactor )
 
@@ -25,13 +25,13 @@ function naivefilt( h::Vector, x::Vector, resamplerate::AbstractFloat, numfilter
     xLen          = length( x )
     xInterpolated = naivefilt( h, x, numfilters//1 )
     xLen          = length( xInterpolated )
-    yLen          = iceil( xLen * resamplerate )
+    yLen          = ceil( Int, xLen * resamplerate )
     y             = similar( x, yLen )
     yIdx          = 1
     xIdx          = 1
     α             = 0.0
     (δ, 𝜙Stride)  = modf( numfilters/resamplerate )
-    𝜙Stride       = int( 𝜙Stride )
+    𝜙Stride       = Int( 𝜙Stride )
 
     while xIdx < xLen
         yLower  = xInterpolated[xIdx]
@@ -39,7 +39,7 @@ function naivefilt( h::Vector, x::Vector, resamplerate::AbstractFloat, numfilter
         y[yIdx] = yLower + α*( yUpper - yLower )
         yIdx   += 1
         α      += δ
-        xIdx   += ifloor( α ) + 𝜙Stride
+        xIdx   += floor( Int, α ) + 𝜙Stride
         α       = mod( α, 1.0 )
     end
 

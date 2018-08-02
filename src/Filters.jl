@@ -18,7 +18,7 @@ type FIRStandard{T} <: FIRKernel
 end
 
 function FIRStandard( h::Vector )
-    h    = flipud( h )
+    h    = flipdim( h, 1 )
     hLen = length( h )
     FIRStandard( h, hLen )
 end
@@ -50,7 +50,7 @@ type FIRDecimator{T} <: FIRKernel
 end
 
 function FIRDecimator( h::Vector, decimation::Integer )
-    h            = flipud( h )
+    h            = flipdim( h, 1 )
     hLen         = length( h )
     decimation   = decimation
     inputDeficit = 1
@@ -70,10 +70,10 @@ type FIRRational{T}  <: FIRKernel
 end
 
 function FIRRational( h::Vector, ratio::Rational )
-    pfb          = taps2pfb( h, num(ratio) )
+    pfb          = taps2pfb( h, numerator(ratio) )
     N𝜙           = size( pfb )[2]
     tapsPer𝜙     = size( pfb )[1]
-    criticalYidx = ifloor( tapsPer𝜙 * ratio )
+    criticalYidx = floor( Int, tapsPer𝜙 * ratio )
     𝜙Idx         = 1
     inputDeficit = 1
     FIRRational( pfb, ratio, N𝜙, tapsPer𝜙, criticalYidx, 𝜙Idx, inputDeficit )
@@ -102,8 +102,8 @@ type FIRArbitrary{T} <: FIRKernel # TODO: since farrow is also arbitrary, find a
     xIdx::Int
 end
 
-function FIRArbitrary( h::Vector, rate::Real, N𝜙::Integer )
-    dh           = [ diff( h ), 0 ]
+function FIRArbitrary{T <: Number}( h::Vector{T}, rate::Real, N𝜙::Integer )
+    dh           = [ diff( h ); zero(T) ]
     pfb          = taps2pfb( h,  N𝜙 )
     dpfb         = taps2pfb( dh, N𝜙 )
     tapsPer𝜙     = size( pfb )[1]
@@ -156,8 +156,8 @@ end
 
 # Constructor for single-rate, decimating, interpolating, and rational resampling filters
 function FIRFilter( h::Vector, resampleRatio::Rational = 1//1 )
-    interpolation = num( resampleRatio )
-    decimation    = den( resampleRatio )
+    interpolation = numerator( resampleRatio )
+    decimation    = denominator( resampleRatio )
     historyLen    = 0
 
     if resampleRatio == 1                                     # single-rate
@@ -283,9 +283,9 @@ end
 
 function taps2pfb{T}( h::Vector{T}, N𝜙::Integer )
     hLen     = length( h )
-    tapsPer𝜙 = iceil( hLen/N𝜙 )
+    tapsPer𝜙 = ceil( Int, hLen/N𝜙 )
     pfbSize  = tapsPer𝜙 * N𝜙
-    pfb      = Array( T, tapsPer𝜙, N𝜙 )
+    pfb      = Array{T}( tapsPer𝜙, N𝜙 )
     hIdx     = 1
 
     for rowIdx in tapsPer𝜙:-1:1, colIdx in 1:N𝜙
@@ -310,7 +310,7 @@ end
 
 function pfb2pnfb{T}( pfb::PFB{T}, polyorder::Integer )
     (tapsPer𝜙, N𝜙) = size( pfb )
-    result         = Array( Poly{T}, tapsPer𝜙 )
+    result         = Array{Poly{T}}( tapsPer𝜙 )
 
     for i in 1:tapsPer𝜙
         row = vec( pfb[i,:] )
@@ -322,8 +322,8 @@ end
 
 function taps2pnfb{T}( h::Vector{T}, N𝜙::Integer, polyorder::Integer )
     hLen     = length( h )
-    tapsPer𝜙 = iceil( hLen/N𝜙 )
-    pnfb     = Array( Poly{T}, tapsPer𝜙 )
+    tapsPer𝜙 = ceil( Int, hLen/N𝜙 )
+    pnfb     = Array{Poly{T}}( tapsPer𝜙 )
     pfbSize  = N𝜙 * tapsPer𝜙
     h        = hLen < pfbSize + 1 ? [ h, zeros( T, pfbSize+1-hLen ) ] : h
 
@@ -350,10 +350,10 @@ end
 # ( It's hard to explain how this works without a diagram )
 
 function outputlength( inputlength::Integer, ratio::Rational, initial𝜙::Integer )
-    interpolation = num( ratio )
-    decimation    = den( ratio )
+    interpolation = numerator( ratio )
+    decimation    = denominator( ratio )
     outLen        = (( inputlength * interpolation ) - initial𝜙 + 1 ) / decimation
-    iceil(  outLen  )
+    ceil( Int, outLen )
 end
 
 function outputlength( kernel::FIRStandard, inputlength::Integer )
@@ -373,11 +373,11 @@ function outputlength( kernel::FIRRational, inputlength::Integer )
 end
 
 function outputlength( kernel::FIRArbitrary, inputlength::Integer )
-    iceil( (inputlength-kernel.inputDeficit+1) * kernel.rate )
+    ceil( Int, (inputlength-kernel.inputDeficit+1) * kernel.rate )
 end
 
 function outputlength( kernel::FIRFarrow, inputlength::Integer )
-    iceil( (inputlength-kernel.inputDeficit+1) * kernel.rate )
+    ceil( Int, (inputlength-kernel.inputDeficit+1) * kernel.rate )
 end
 
 function outputlength( self::FIRFilter, inputlength::Integer )
@@ -394,10 +394,10 @@ end
 #==============================================================================#
 
 function inputlength( outputlength::Int, ratio::Rational, initial𝜙::Integer )
-    interpolation = num( ratio )
-    decimation    = den( ratio )
+    interpolation = numerator( ratio )
+    decimation    = denominator( ratio )
     inLen         = ( outputlength * decimation + initial𝜙 - 1 ) / interpolation
-    iceil( inLen )
+    ceil( Int, inLen )
 end
 
 function inputlength( self::FIRFilter{FIRStandard}, outputlength::Integer )
@@ -431,8 +431,8 @@ end
 #==============================================================================#
 
 function nextphase( currentphase::Integer, ratio::Rational )
-    interpolation = num( ratio )
-    decimation    = den( ratio )
+    interpolation = numerator( ratio )
+    decimation    = denominator( ratio )
     𝜙Step         = mod( decimation, interpolation )
     𝜙Next         = currentphase + 𝜙Step
     𝜙Next         = 𝜙Next > interpolation ? 𝜙Next - interpolation : 𝜙Next
@@ -473,7 +473,7 @@ function filt!{Tb,Th,Tx}( buffer::Vector{Tb}, self::FIRFilter{FIRStandard{Th}}, 
 end
 
 function filt{Th,Tx}( self::FIRFilter{FIRStandard{Th}}, x::Vector{Tx} )
-    buffer = Array( promote_type(Th, Tx), length(x) )
+    buffer = Array{promote_type(Th, Tx)}( length(x) )
     filt!( buffer, self, x )
 end
 
@@ -519,7 +519,7 @@ end
 function filt{Th,Tx}( self::FIRFilter{FIRInterpolator{Th}}, x::Vector{Tx} )
     xLen   = length( x )
     outlen = outputlength( self, xLen )
-    buffer = Array( promote_type(Th,Tx), outlen )
+    buffer = Array{promote_type(Th,Tx)}( outlen )
     filt!( buffer, self, x )
     return buffer
 end
@@ -549,8 +549,8 @@ function filt!{Tb,Th,Tx}( buffer::Vector{Tb}, self::FIRFilter{FIRRational{Th}}, 
     outLen = outputlength( xLen-kernel.inputDeficit+1, kernel.ratio, kernel.𝜙Idx )
     bufLen >= outLen || error( "buffer is too small" )
 
-    interpolation       = num( kernel.ratio )
-    decimation          = den( kernel.ratio )
+    interpolation       = numerator( kernel.ratio )
+    decimation          = denominator( kernel.ratio )
     𝜙IdxStepSize        = mod( decimation, interpolation )
     critical𝜙Idx        = kernel.N𝜙 - 𝜙IdxStepSize
     inputIdx            = kernel.inputDeficit
@@ -564,7 +564,7 @@ function filt!{Tb,Th,Tx}( buffer::Vector{Tb}, self::FIRFilter{FIRRational{Th}}, 
         end
 
         buffer[ bufIdx ] = accumulator
-        inputIdx      += ifloor( ( kernel.𝜙Idx + decimation - 1 ) / interpolation )
+        inputIdx      += floor( Int, ( kernel.𝜙Idx + decimation - 1 ) / interpolation )
         kernel.𝜙Idx    = nextphase( kernel.𝜙Idx, kernel.ratio )
     end
 
@@ -578,7 +578,7 @@ function filt{Th,Tx}( self::FIRFilter{FIRRational{Th}}, x::Vector{Tx} )
     kernel         = self.kernel
     xLen           = length( x )
     bufLen         = outputlength( self, xLen )
-    buffer         = Array( promote_type(Th,Tx), bufLen )
+    buffer         = Array{promote_type(Th,Tx)}( bufLen )
     samplesWritten = filt!( buffer, self, x )
 
     samplesWritten == bufLen || resize!( buffer, samplesWritten)
@@ -643,7 +643,7 @@ function filt{Th,Tx}( self::FIRFilter{FIRDecimator{Th}}, x::Vector{Tx} )
     end
 
     outLen = outputlength( self, xLen )
-    buffer = Array( Tb, outLen )
+    buffer = Array{Tb}( outLen )
     filt!( buffer, self, x )
 
     return buffer
@@ -664,11 +664,11 @@ function update( kernel::FIRArbitrary )
     kernel.𝜙Accumulator += kernel.Δ
 
     if kernel.𝜙Accumulator > kernel.N𝜙
-        kernel.xIdx        += ifloor( (kernel.𝜙Accumulator-1) / kernel.N𝜙 )
+        kernel.xIdx        += floor( Int, (kernel.𝜙Accumulator-1) / kernel.N𝜙 )
         kernel.𝜙Accumulator = mod( (kernel.𝜙Accumulator-1), kernel.N𝜙 ) + 1
     end
 
-    kernel.𝜙Idx = ifloor( kernel.𝜙Accumulator )
+    kernel.𝜙Idx = floor( Int, kernel.𝜙Accumulator )
     kernel.α    = kernel.𝜙Accumulator - kernel.𝜙Idx
 end
 
@@ -687,7 +687,7 @@ function tapsforphase!{T}( buffer::Vector{T}, kernel::FIRArbitrary{T}, phase::Re
     buffer
 end
 
-tapsforphase{T}( kernel::FIRArbitrary{T}, phase::Real ) = tapsforphase!( Array(T,kernel.tapsPer𝜙), kernel, phase )
+tapsforphase{T}( kernel::FIRArbitrary{T}, phase::Real ) = tapsforphase!( Array{T}(kernel.tapsPer𝜙), kernel, phase )
 
 
 function filt!{Tb,Th,Tx}( buffer::Vector{Tb}, self::FIRFilter{FIRArbitrary{Th}}, x::Vector{Tx} )
@@ -698,8 +698,8 @@ function filt!{Tb,Th,Tx}( buffer::Vector{Tb}, self::FIRFilter{FIRArbitrary{Th}},
     bufIdx              = 0
     history::Vector{Tx} = self.history
     # TODO: Remove when arb and farrow filters are rock-solid.
-    # db_vec_phi          = Array(Float64, bufLen)
-    # db_vec_xidx         = Array(Int, bufLen)
+    # db_vec_phi          = Array{Float64}(bufLen)
+    # db_vec_xidx         = Array{Int}(bufLen)
 
     # Do we have enough input samples to produce one or more output samples?
     if xLen < kernel.inputDeficit
@@ -743,7 +743,7 @@ end
 
 function filt{Th,Tx}( self::FIRFilter{FIRArbitrary{Th}}, x::Vector{Tx} )
     bufLen         = outputlength( self, length(x) )
-    buffer         = Array( promote_type(Th,Tx), bufLen )
+    buffer         = Array{promote_type(Th,Tx)}( bufLen )
     samplesWritten = filt!( buffer, self, x )
 
     samplesWritten == bufLen || resize!( buffer, samplesWritten)
@@ -772,7 +772,7 @@ function tapsforphase!{T}( buffer::Vector{T}, kernel::FIRFarrow{T}, phase::Real 
     return buffer
 end
 
-tapsforphase{T}( kernel::FIRFarrow{T}, phase::Real ) = tapsforphase!( Array(T,kernel.tapsPer𝜙), kernel, phase )
+tapsforphase{T}( kernel::FIRFarrow{T}, phase::Real ) = tapsforphase!( Array{T}(kernel.tapsPer𝜙), kernel, phase )
 
 
 # Updates farrow filter state.
@@ -781,7 +781,7 @@ function update( kernel::FIRFarrow )
     kernel.𝜙Idx += kernel.Δ
 
     if kernel.𝜙Idx > kernel.N𝜙
-        kernel.xIdx += ifloor( (kernel.𝜙Idx-1) / kernel.N𝜙 )
+        kernel.xIdx += floor( Int, (kernel.𝜙Idx-1) / kernel.N𝜙 )
         kernel.𝜙Idx  = mod( (kernel.𝜙Idx-1), kernel.N𝜙 ) + 1
     end
 
@@ -798,8 +798,8 @@ function filt!{Tb,Th,Tx}( buffer::Vector{Tb}, self::FIRFilter{FIRFarrow{Th}}, x:
     bufIdx              = 0
     history::Vector{Tx} = self.history
     # TODO: Remove when arb and farrow filters are rock-solid.
-    # db_vec_phi          = Array(Float64, bufLen)
-    # db_vec_xidx         = Array(Int, bufLen)
+    # db_vec_phi          = Array{Float64}(bufLen)
+    # db_vec_xidx         = Array{Int}(bufLen)
 
     # Do we have enough input samples to produce one or more output samples?
     if xLen < kernel.inputDeficit
@@ -837,7 +837,7 @@ end
 
 function filt{Th,Tx}( self::FIRFilter{FIRFarrow{Th}}, x::Vector{Tx} )
     bufLen         = outputlength( self, length(x) )
-    buffer         = Array( promote_type(Th,Tx), bufLen )
+    buffer         = Array{promote_type(Th,Tx)}( bufLen )
     samplesWritten = filt!( buffer, self, x )
 
     samplesWritten == bufLen || resize!( buffer, samplesWritten)

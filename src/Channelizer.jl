@@ -31,13 +31,13 @@ function filt!{Tb,Th,Tx}( buffer::AbstractMatrix{Tb}, kernel::Channelizer{Th}, x
     tapsPer𝜙          = kernel.tapsPer𝜙
     xLen              = length( x )
     (bufLen,bufWidth) = size( buffer )
-    fftBuffer         = Array( Tb, Nchannels )
+    fftBuffer         = Array{Tb}( Nchannels )
 
     @assert xLen   % Nchannels == 0
     @assert bufLen * bufWidth  == xLen
     @assert Tb                 == promote_type(Th,Tx)
 
-    xPartitioned = Array(Vector{Tx}, Nchannels)
+    xPartitioned = Array{Vector{Tx}}( Nchannels )
 
     for channel in 1:Nchannels
         xIdxStart = Nchannels-channel+1
@@ -79,7 +79,7 @@ function filt{Th,Tx}( kernel::Channelizer{Th}, x::AbstractVector{Tx} )
 
     @assert xLen % kernel.Nchannels == 0
 
-    buffer = Array( promote_type(Th,Tx), int(xLen/kernel.Nchannels), kernel.Nchannels )
+    buffer = Array{promote_type(Th,Tx)}( int(xLen/kernel.Nchannels), kernel.Nchannels )
     filt!( buffer, kernel, x )
     return buffer
 end

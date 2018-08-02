@@ -34,7 +34,7 @@ function update( self::ArbResamplerState )
     end
 
     self.𝜙IdxVirtual = self.𝜙Accumulator * ( self.N𝜙 - 1 ) + 1
-    self.𝜙Idx        = ifloor( self.𝜙IdxVirtual )
+    self.𝜙Idx        = floor( Int, self.𝜙IdxVirtual )
     self.δ           = self.𝜙IdxVirtual - self.𝜙Idx
     self
 end
@@ -71,13 +71,13 @@ end
 #
 #         𝜙Accumulator += Δ
 #         𝜙IdxVirtual   = 𝜙Accumulator * N𝜙
-#         𝜙Idx          = ifloor( 𝜙IdxVirtual ) + 1
+#         𝜙Idx          = floor( Int, 𝜙IdxVirtual ) + 1
 #         δ             = mod( 𝜙Accumulator, 1 )
 #
 #     end
 #
 #     𝜙Accumulator -= 1
 #     𝜙IdxVirtual  -= N𝜙
-#     𝜙Idx          = ifloor( 𝜙IdxVirtual )
+#     𝜙Idx          = floor( Int, 𝜙IdxVirtual )
 #
 # end
