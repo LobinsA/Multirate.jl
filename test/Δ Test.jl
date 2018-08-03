@@ -60,7 +60,7 @@ end
 # δ            = 0.0
 # 𝜙IdxVirtual  = 0.0
 # 𝜙Accumulator = 0.0
-# Δ = int(resamp)
+# Δ = Int(resamp)
 #
 # while xCount < 10
 #     xCount += 1

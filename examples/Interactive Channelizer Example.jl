@@ -1,32 +1,27 @@
 using Multirate
+import Radio: wgn
+using GtkInteract
 using Winston
-
-function wgn(n::Int; power::Real=1)
-    return power * (randn(n) + randn(n)im)
-end
-
 
 function powerspectrum( x::Vector, window::Function = blackman )
     xLen = length( x )
-    xWin = x .* window( xLen )
-    10*log10.(fftshift(abs2.(fft( xWin ))))
+    x  .*= window( xLen )
+    10*log10(fftshift(abs2(fft( x ))))
 end
 
 function channelizerplots( signal::Vector, channelizedSignals::Matrix )
     (samplesPerChannel,Nchannels) = size( channelizedSignals )
     # Create plot tables to hold original spectrum plus spectrum and signal traces of each channel
-    table              = Table(3,1)
+    table              = Table(2,1)
     subTable           = Table(2,Nchannels)
 
     # Compute the spectrum of the original signal and add it to the table
     signalSpectrum     = powerspectrum( signal )
     p                  = plot( linspace(-0.5,0.5,length(signalSpectrum)), signalSpectrum )
-    setattr( p, "title", "Original Signal" )
+    setattr( p, "title", "Original Spectrum" )
     table[1,1]         = p
     ylim(-10,60)
-    
-    table[2,1]         = plot( indices(signal,1), real(signal), "-b", indices(signal,1), imag(signal), "-r" )
-    
+
     freqs = linspace( -0.5, 0.5, samplesPerChannel )
     t     = linspace( 0, Nchannels*samplesPerChannel-1, samplesPerChannel )
     
@@ -48,38 +43,28 @@ function channelizerplots( signal::Vector, channelizedSignals::Matrix )
     end
 
     # Position the subtable traces below the main spectrum trace
-    table[3,1] = subTable
+    table[2,1] = subTable
     
     return table
 end
 
 
+
 Tx = Complex128 # Datatype for x
 ƒs = 1.0        # Input sample rate
 
-Nchannels = 7
-samplesPerChannel = 850
+@manipulate for ƒ in -0.5:0.05:0.5, Nchannels in [1:9], samplesPerChannel in [128,256,512,1024]
 
-# Construct a linear chirp signal from ƒ = -0.5 to -0.5
-n                   = Nchannels * samplesPerChannel
-t                   = 0:n-1
+    # Construct a complex sinusoidal signal at frequency ƒ
+    signal             = Tx[ complex(cos(2*pi*ƒ*t),sin(2*pi*ƒ*t)) for t in 0:Nchannels*samplesPerChannel-1 ]
+    signal            += wgn( length(signal), power=0.1, returnComplex=true )
 
-ψ = π * (t / n - 1) .* t
+    # Instantiate a channelizer with Nchannels
+    channelizer        = Channelizer( Nchannels, 32 )
+    channelizedSignals = filt( channelizer, signal )
+   
+    # Create the table of plots
+    table = channelizerplots( signal, channelizedSignals )
 
-signal             = exp.(Array{Tx}(ψ) * 1im / ƒs)
-signal            += wgn( n, power=0.1)
-
-# Instantiate a channelizer with Nchannels
-channelizer        = Channelizer( Nchannels, 32 )
-channelizedSignals = filt( channelizer, copy(signal) )
-
-# # Create the table of plots
-table = channelizerplots( signal, channelizedSignals )
-
-winOpen = [true]
-win = Winston.window("Channelizer Example", 1500, 1000, path -> winOpen[1] = false)
-display(win, table)
-
-while(winOpen[1])
-    sleep(0.1)
+    display(table)
 end

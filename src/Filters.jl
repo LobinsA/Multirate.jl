@@ -209,14 +209,14 @@ end
 
 function setphase( kernel::Union{FIRInterpolator, FIRRational}, 𝜙::Number )
     @assert zero(𝜙) <= 𝜙 <= one(𝜙)
-    kernel.𝜙Idx = int(𝜙Idx)
+    kernel.𝜙Idx = Int(𝜙Idx)
     return kernel.𝜙Idx
 end
 
 function setphase( kernel::FIRArbitrary, 𝜙::Number )
     @assert zero(𝜙) <= 𝜙 <= one(𝜙)
     (α, 𝜙Idx)   = modf( 𝜙 * kernel.N𝜙 )
-    kernel.𝜙Idx = int(𝜙Idx)
+    kernel.𝜙Idx = Int(𝜙Idx)
     kernel.α    = α
     return 𝜙Idx, α
 end
@@ -679,7 +679,7 @@ function tapsforphase!{T}( buffer::Vector{T}, kernel::FIRArbitrary{T}, phase::Re
     length( buffer ) >= kernel.tapsPer𝜙 || error( "buffer is too small" )
 
     (α, 𝜙Idx) = modf( phase )
-    𝜙Idx      = int( 𝜙Idx )
+    𝜙Idx      = Int( 𝜙Idx )
 
     for tapIdx in 1:kernel.tapsPer𝜙
         buffer[tapIdx] = kernel.pfb[tapIdx,𝜙Idx] + α*kernel.dpfb[tapIdx,𝜙Idx]

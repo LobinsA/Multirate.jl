@@ -79,7 +79,7 @@ function filt{Th,Tx}( kernel::Channelizer{Th}, x::AbstractVector{Tx} )
 
     @assert xLen % kernel.Nchannels == 0
 
-    buffer = Array{promote_type(Th,Tx)}( int(xLen/kernel.Nchannels), kernel.Nchannels )
+    buffer = Array{promote_type(Th,Tx)}( Int(xLen/kernel.Nchannels), kernel.Nchannels )
     filt!( buffer, kernel, x )
     return buffer
 end
