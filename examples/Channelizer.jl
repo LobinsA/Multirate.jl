@@ -71,7 +71,7 @@ signal            += wgn( n, power=0.1)
 
 # Instantiate a channelizer with Nchannels
 channelizer        = Channelizer( Nchannels, 32 )
-channelizedSignals = filt( channelizer, copy(signal) )
+channelizedSignals = filt( channelizer, signal )
 
 # # Create the table of plots
 table = channelizerplots( signal, channelizedSignals )
