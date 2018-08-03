@@ -79,6 +79,32 @@ function shiftin!{T}( a::Vector{T}, b::Vector{T} )
     return a
 end
 
+function shiftin!{T}( dst::Matrix{T}, src::Matrix{T} )
+    @assert size( dst, 1 ) == size( src, 1 )
+    width = size( dst, 1 )
+    
+    dstLen = size( dst, 2 )
+    srcLen = size( src, 2 )
+
+    if srcLen >= dstLen
+        srcRange = CartesianRange(CartesianIndex(1, srcLen - dstLen + 1), CartesianIndex(width, srcLen))
+        dstRange = CartesianRange(CartesianIndex(1, 1),                   CartesianIndex(width, dstLen))
+        copy!( dst, dstRange, src, srcRange )
+    else
+
+        for i in 1:dstLen-srcLen
+            @inbounds dst[:,i] = dst[:,i+srcLen]
+        end
+        srcIdx = 1
+        for i in dstLen-srcLen+1:dstLen
+            @inbounds dst[:,i] = src[:,srcIdx]
+            srcIdx += 1
+        end
+    end
+
+    return dst
+end
+
 
 
 

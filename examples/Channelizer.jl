@@ -13,7 +13,7 @@ function powerspectrum( x::Vector, window::Function = blackman )
 end
 
 function channelizerplots( signal::Vector, channelizedSignals::Matrix )
-    (samplesPerChannel,Nchannels) = size( channelizedSignals )
+    (Nchannels,samplesPerChannel) = size( channelizedSignals )
     # Create plot tables to hold original spectrum plus spectrum and signal traces of each channel
     table              = Table(3,1)
     subTable           = Table(2,Nchannels)
@@ -32,7 +32,7 @@ function channelizerplots( signal::Vector, channelizedSignals::Matrix )
     
     # Plot the spectrum/time-domain traces of each channel and add them to the subtable
     for channel in 1:Nchannels
-        thisSignal          = channelizedSignals[:,channel]
+        thisSignal          = channelizedSignals[channel,:]
         spectrum            = powerspectrum( thisSignal )
         sp                  = plot( freqs, spectrum ); ylim(-10,60)
         setattr( sp, "title", "Channel $channel" )
@@ -57,8 +57,8 @@ end
 Tx = Complex128 # Datatype for x
 ƒs = 1.0        # Input sample rate
 
-Nchannels = 7
-samplesPerChannel = 850
+Nchannels = 35
+samplesPerChannel = 85000
 
 # Construct a linear chirp signal from ƒ = -0.5 to -0.5
 n                   = Nchannels * samplesPerChannel
@@ -70,16 +70,16 @@ signal             = exp.(Array{Tx}(ψ) * 1im / ƒs)
 signal            += wgn( n, power=0.1)
 
 # Instantiate a channelizer with Nchannels
-channelizer        = Channelizer( Nchannels, 32 )
-channelizedSignals = filt( channelizer, signal )
+channelizer        = Channelizer( Tx, Nchannels, 32 )
+@time channelizedSignals = filt( channelizer, signal )
 
 # # Create the table of plots
-table = channelizerplots( signal, channelizedSignals )
+# table = channelizerplots( signal, channelizedSignals )
 
-winOpen = [true]
-win = Winston.window("Channelizer Example", 1500, 1000, path -> winOpen[1] = false)
-display(win, table)
+# winOpen = [true]
+# win = Winston.window("Channelizer Example", 1500, 1000, path -> winOpen[1] = false)
+# display(win, table)
 
-while(winOpen[1])
-    sleep(0.1)
-end
+# while(winOpen[1])
+#     sleep(0.1)
+# end

@@ -283,18 +283,10 @@ end
 
 function taps2pfb{T}( h::Vector{T}, N𝜙::Integer )
     hLen     = length( h )
-    tapsPer𝜙 = ceil( Int, hLen/N𝜙 )
-    pfbSize  = tapsPer𝜙 * N𝜙
-    pfb      = Array{T}( tapsPer𝜙, N𝜙 )
-    hIdx     = 1
-
-    for rowIdx in tapsPer𝜙:-1:1, colIdx in 1:N𝜙
-        tap = hIdx > hLen ? zero(T) : h[hIdx]
-        @inbounds pfb[rowIdx,colIdx] = tap
-        hIdx += 1
-    end
-
-    return pfb
+    stuffed  = [ h; zeros(T, mod(-hLen, N𝜙))]
+    h2       = reshape(stuffed, N𝜙, :)
+    
+    return flipdim(h2.', 1)
 end
 
 

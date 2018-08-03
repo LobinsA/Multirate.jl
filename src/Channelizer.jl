@@ -1,85 +1,81 @@
-import Multirate: PFB, taps2pfb
+import Multirate: PFB, shiftin!
+
+# using a different coefficient layout from that used in Filters.jl
+# this layout should allow for a simpler expression of the filter operation
+# with less memory movement
+function taps2pfb2{T}( h::Vector{T}, N𝜙::Integer )
+    hLen     = length( h )
+    stuffed  = [ h; zeros(T, mod(-hLen, N𝜙))]
+    pfb       = reshape(flipdim(stuffed, 1), N𝜙, :)
+    
+    return pfb
+end
 
 # Interpolator FIR kernel
-type Channelizer{T}
-    pfb::PFB{T}
-    h::Vector{T}
+type Channelizer{Th, Tx}
+    pfb::PFB{Th}
+    h::Vector{Th}
     Nchannels::Int
     tapsPer𝜙::Int
-    history::AbstractArray
+    history::Matrix{Tx}
 end
 
-function Channelizer( h::Vector, Nchannels::Integer )
-    pfb       = taps2pfb( h, Nchannels )
-    Nchannels = size( pfb )[2]
-    tapsPer𝜙  = size( pfb )[1]
-    Channelizer( pfb, h, Nchannels, tapsPer𝜙, [] )
+function Channelizer( Tx, h::Vector, Nchannels::Integer )
+    pfb       = taps2pfb2( h, Nchannels )
+    Nchannels = size( pfb )[1]
+    tapsPer𝜙  = size( pfb )[2]
+    history   = zeros(Tx, Nchannels, tapsPer𝜙 - 1)
+    Channelizer( pfb, h, Nchannels, tapsPer𝜙, history)
 end
 
-function Channelizer( Nchannels::Integer, tapsPer𝜙 = 20 )
+function Channelizer( Tx, Nchannels::Integer, tapsPer𝜙 = 20 )
     hLen = tapsPer𝜙 * Nchannels
     h    = firdes( hLen, 0.45/Nchannels, kaiser ) .* Nchannels
-    Channelizer( h, Nchannels )
+    Channelizer( Tx, h, Nchannels )
 end
 
 
 
 
-function filt!{Tb,Th,Tx}( buffer::AbstractMatrix{Tb}, kernel::Channelizer{Th}, x::AbstractVector{Tx} )
+function filt!{Tb,Th,Tx}( output::Matrix{Tb}, kernel::Channelizer{Th, Tx}, x::Matrix{Tx} )
     Nchannels         = kernel.Nchannels
-    pfb               = kernel.pfb
     tapsPer𝜙          = kernel.tapsPer𝜙
-    xLen              = length( x )
-    (bufLen,bufWidth) = size( buffer )
-    fftBuffer         = Array{Tb}( Nchannels )
+    pfb               = kernel.pfb
+    outLen            = size(output,2)
+    history           = kernel.history
+    histLen           = tapsPer𝜙-1
+    fftBuf            = Array{Tb}(Nchannels)
 
-    @assert xLen   % Nchannels == 0
-    @assert bufLen * bufWidth  == xLen
-    @assert Tb                 == promote_type(Th,Tx)
+    @assert size(x)         == size(output)
+    @assert size(x,1)       == Nchannels
+    @assert size(history)   == (Nchannels, histLen)
+    @assert Tb              == promote_type(Th,Tx)
 
-    xPartitioned = Array{Vector{Tx}}( Nchannels )
-
-    for channel in 1:Nchannels
-        xIdxStart = Nchannels-channel+1
-        xPartitioned[channel] = x[xIdxStart:Nchannels:end]
+    # initial segment using history from previous call
+    @inbounds xh = [history x[:,1:histLen]]
+    for s in 1:min(outLen, histLen)
+        @inbounds fftBuf[:] = flipdim(sum( xh[:,s:s+histLen] .* pfb, 2 ), 1)
+        @inbounds output[:,s] = fftshift(ifft(fftBuf))
     end
 
-    if kernel.history == []
-        kernel.history = [ zeros(Tx, tapsPer𝜙-1) for i in 1:Nchannels ]
+    # history-independent portion
+    for s in histLen+1:outLen
+        # @inbounds fftBuf[:] = flipdim(sum( x[:,s-histLen:s] .* pfb, 2 ), 1)
+        @inbounds fftBuf[:] = flipdim(sum( x[:,s-histLen:s] .* pfb, 2 ), 1)
+        @inbounds output[:,s] = fftshift(ifft(fftBuf))
     end
 
-    𝜙Idx         = Nchannels
-    xIdx         = 1
-    rowIdx       = 1
+    # set history for next call
+    kernel.history = shiftin!( history, x );
 
-    while xIdx <= bufLen
-        history = kernel.history[𝜙Idx]
-
-        if xIdx < tapsPer𝜙
-            fftBuffer[𝜙Idx] = unsafedot( pfb, 𝜙Idx, history, xPartitioned[𝜙Idx], xIdx )
-        else
-            fftBuffer[𝜙Idx] = unsafedot( pfb, 𝜙Idx, xPartitioned[𝜙Idx], xIdx )
-        end
-
-        𝜙Idx -= 1
-
-        if 𝜙Idx == 0
-            buffer[rowIdx,:] = fftshift(ifft(fftBuffer))
-            𝜙Idx             = Nchannels
-            rowIdx          += 1
-            xIdx            += 1
-        end
-    end
-
-    return buffer
+    return output
 end
 
-function filt{Th,Tx}( kernel::Channelizer{Th}, x::AbstractVector{Tx} )
+function filt{Th,Tx}( kernel::Channelizer{Th, Tx}, x::Vector{Tx} )
     xLen   = length( x )
-
     @assert xLen % kernel.Nchannels == 0
+    xm = reshape(x, kernel.Nchannels, Int(xLen/kernel.Nchannels));
 
-    buffer = Array{promote_type(Th,Tx)}( Int(xLen/kernel.Nchannels), kernel.Nchannels )
-    filt!( buffer, kernel, x )
-    return buffer
+    output = similar(xm, promote_type(Th,Tx))
+    return filt!( output, kernel, xm )
 end
