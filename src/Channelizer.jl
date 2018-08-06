@@ -20,7 +20,7 @@ type Channelizer{Th, Tx}
     history::Matrix{Tx}
 end
 
-function Channelizer( Tx, h::Vector, Nchannels::Integer )
+function Channelizer{Th}( Tx, h::Vector{Th}, Nchannels::Integer )
     pfb       = taps2pfb2( h, Nchannels )
     Nchannels = size( pfb )[1]
     tapsPer𝜙  = size( pfb )[2]
@@ -28,10 +28,10 @@ function Channelizer( Tx, h::Vector, Nchannels::Integer )
     Channelizer( pfb, h, Nchannels, tapsPer𝜙, history)
 end
 
-function Channelizer( Tx, Nchannels::Integer, tapsPer𝜙 = 20 )
+function Channelizer( Th, Tx, Nchannels::Integer, tapsPer𝜙 = 20 )
     hLen = tapsPer𝜙 * Nchannels
     h    = firdes( hLen, 0.45/Nchannels, kaiser ) .* Nchannels
-    Channelizer( Tx, h, Nchannels )
+    Channelizer( Tx, Vector{Th}(h), Nchannels )
 end
 
 
@@ -53,15 +53,24 @@ function filt!{Tb,Th,Tx}( output::Matrix{Tb}, kernel::Channelizer{Th, Tx}, x::Ma
 
     # initial segment using history from previous call
     @inbounds xh = [history x[:,1:histLen]]
-    for s in 1:min(outLen, histLen)
+    @simd for s in 1:min(outLen, histLen)
         @inbounds fftBuf[:] = flipdim(sum( xh[:,s:s+histLen] .* pfb, 2 ), 1)
         @inbounds output[:,s] = fftshift(ifft(fftBuf))
     end
 
     # history-independent portion
-    for s in histLen+1:outLen
+    @simd for s in histLen+1:outLen
         # @inbounds fftBuf[:] = flipdim(sum( x[:,s-histLen:s] .* pfb, 2 ), 1)
-        @inbounds fftBuf[:] = flipdim(sum( x[:,s-histLen:s] .* pfb, 2 ), 1)
+        @simd for k in 1:Nchannels
+            fftElem = zero(Tb)
+            
+            @simd for m in 0:histLen
+               @inbounds fftElem += x[k, s-histLen+m] * pfb[k, 1+m]
+            end
+            
+            fftBuf[Nchannels+1-k] = fftElem
+        end
+        
         @inbounds output[:,s] = fftshift(ifft(fftBuf))
     end
 

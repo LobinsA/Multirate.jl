@@ -53,25 +53,26 @@ function channelizerplots( signal::Vector, channelizedSignals::Matrix )
     return table
 end
 
+const Th = Float64
+const Tx = Complex128 # Datatype for x
+const ƒs = 1.0        # Input sample rate
 
-Tx = Complex128 # Datatype for x
-ƒs = 1.0        # Input sample rate
-
-Nchannels = 35
-samplesPerChannel = 85000
+const Nchannels = 35
+const samplesPerChannel = 85000
 
 # Construct a linear chirp signal from ƒ = -0.5 to -0.5
-n                   = Nchannels * samplesPerChannel
-t                   = 0:n-1
+const n                   = Nchannels * samplesPerChannel
+const t                   = 0:n-1
 
-ψ = π * (t / n - 1) .* t
+const ψ = π * (t / n - 1) .* t
 
-signal             = exp.(Array{Tx}(ψ) * 1im / ƒs)
-signal            += wgn( n, power=0.1)
+const signal             = exp.(Array{Tx}(ψ) * 1im / ƒs) + wgn( n, power=0.1)
 
 # Instantiate a channelizer with Nchannels
-channelizer        = Channelizer( Tx, Nchannels, 32 )
-@time channelizedSignals = filt( channelizer, signal )
+const channelizer        = Channelizer( Th, Tx, Nchannels, 32 )
+for i = 1:10
+    @time const channelizedSignals = filt( channelizer, signal )
+end
 
 # # Create the table of plots
 # table = channelizerplots( signal, channelizedSignals )
