@@ -53,12 +53,27 @@ function channelizerplots( signal::Vector, channelizedSignals::Matrix )
     return table
 end
 
+function segments(n; alpha=0.5)
+    s0 = 1; n0 = n; segs = []
+    
+    while n > 0
+        s=min(n, round(Int, alpha*rand()*n0))
+        
+        if s > 0
+            push!(segs, s0:s0+s-1)
+            n -= s; s0 += s
+        end
+    end
+    
+    return segs
+end
+
 const Th = Float64
 const Tx = Complex128 # Datatype for x
 const ƒs = 1.0        # Input sample rate
 
-const Nchannels = 35
-const samplesPerChannel = 85000
+const Nchannels = 7
+const samplesPerChannel = 5000
 
 # Construct a linear chirp signal from ƒ = -0.5 to -0.5
 const n                   = Nchannels * samplesPerChannel
@@ -69,18 +84,30 @@ const ψ = π * (t / n - 1) .* t
 const signal             = exp.(Array{Tx}(ψ) * 1im / ƒs) + wgn( n, power=0.1)
 
 # Instantiate a channelizer with Nchannels
-const channelizer        = Channelizer( Th, Tx, Nchannels, 32 )
-for i = 1:10
-    @time const channelizedSignals = filt( channelizer, signal )
+const channelizer1        = Channelizer( Th, Tx, Nchannels, 32 )
+@time const channelizedSignals1 = filt( channelizer1, signal )
+
+const channelizer2        = Channelizer( Th, Tx, Nchannels, 32 )
+channelizedSignals2 = Array{Tx}(Nchannels, 0)
+for segment in segments(samplesPerChannel)
+    expandedSegment = (segment.start-1)*Nchannels+1 : segment.stop*Nchannels
+    @printf("Channelizing segment %s as %s\n", segment, expandedSegment)
+    @time channelizedSignals2 = [channelizedSignals2 filt( channelizer2, signal[expandedSegment] )]
 end
 
-# # Create the table of plots
-# table = channelizerplots( signal, channelizedSignals )
+if isapprox(channelizedSignals1, channelizedSignals2, atol=sqrt(Nchannels*samplesPerChannel*eps(Th)))
+    @printf("Results match\n")
+else
+    @printf("Results don't match!\n")
+end
 
-# winOpen = [true]
-# win = Winston.window("Channelizer Example", 1500, 1000, path -> winOpen[1] = false)
-# display(win, table)
+# Create the table of plots
+table = channelizerplots( signal, channelizedSignals1 )
 
-# while(winOpen[1])
-#     sleep(0.1)
-# end
+winOpen = [true]
+win = Winston.window("Channelizer Example", 1500, 1000, path -> winOpen[1] = false)
+display(win, table)
+
+while(winOpen[1])
+    sleep(0.1)
+end
