@@ -53,13 +53,13 @@ function filt!{Tb,Th,Tx}( output::Matrix{Tb}, kernel::Channelizer{Th, Tx}, x::Ma
 
     # initial segment using history from previous call
     @inbounds xh = [history x[:,1:histLen]]
-    @simd for s in 1:min(outLen, histLen)
+    for s in 1:min(outLen, histLen)
         @inbounds fftBuf[:] = flipdim(sum( xh[:,s:s+histLen] .* pfb, 2 ), 1)
         @inbounds output[:,s] = fftshift(ifft(fftBuf))
     end
 
     # history-independent portion
-    @simd for s in histLen+1:outLen
+    for s in histLen+1:outLen
         # @inbounds fftBuf[:] = flipdim(sum( x[:,s-histLen:s] .* pfb, 2 ), 1)
         @simd for k in 1:Nchannels
             fftElem = zero(Tb)
