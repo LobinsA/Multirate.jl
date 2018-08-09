@@ -1,3 +1,4 @@
+import DSP
 import Multirate
 import PyPlot
 
@@ -16,7 +17,7 @@ myfilter        = Multirate.FIRFilter( h, resampleRate, N𝜙 )
 δfilter         = (hLen-1)/(2*N𝜙)
 y               = Multirate.filt( myfilter, x )
 tx              = (0:length(x)-1)
-ty              = (0:length(y)-1)./resampleRate-δfilter
+ty              = (0:length(y)-1)./resampleRate.-δfilter
 
 
 PyPlot.stem( tx, x, linefmt = "r-", markerfmt = "r." )

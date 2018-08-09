@@ -50,7 +50,7 @@ end
 
 
 
-Tx = Complex128 # Datatype for x
+Tx = ComplexF64 # Datatype for x
 ƒs = 1.0        # Input sample rate
 
 @manipulate for ƒ in -0.5:0.05:0.5, Nchannels in [1:9], samplesPerChannel in [128,256,512,1024]

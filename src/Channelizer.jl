@@ -1,18 +1,19 @@
 import Multirate: PFB, shiftin!
+using FFTW
 
 # using a different coefficient layout from that used in Filters.jl
 # this layout should allow for a simpler expression of the filter operation
 # with less memory movement
-function taps2pfb2{T}( h::Vector{T}, N𝜙::Integer )
+function taps2pfb2( h::Vector{T}, N𝜙::Integer ) where T
     hLen     = length( h )
     stuffed  = [ h; zeros(T, mod(-hLen, N𝜙))]
-    pfb       = reshape(flipdim(stuffed, 1), N𝜙, :)
+    pfb       = reshape(reverse(stuffed, dims=1), N𝜙, :)
     
     return pfb
 end
 
 # Interpolator FIR kernel
-type Channelizer{Th, Tx}
+mutable struct Channelizer{Th, Tx}
     pfb::PFB{Th}
     h::Vector{Th}
     Nchannels::Int
@@ -20,7 +21,7 @@ type Channelizer{Th, Tx}
     history::Matrix{Tx}
 end
 
-function Channelizer{Th}( Tx, h::Vector{Th}, Nchannels::Integer )
+function Channelizer( Tx, h::Vector{Th}, Nchannels::Integer ) where Th
     pfb       = taps2pfb2( h, Nchannels )
     Nchannels = size( pfb )[1]
     tapsPer𝜙  = size( pfb )[2]
@@ -37,14 +38,14 @@ end
 
 
 
-function filt!{Tb,Th,Tx}( output::Matrix{Tb}, kernel::Channelizer{Th, Tx}, x::Matrix{Tx} )
+function filt!( output::Matrix{Tb}, kernel::Channelizer{Th, Tx}, x::Matrix{Tx} ) where {Tb,Th,Tx}
     Nchannels         = kernel.Nchannels
     tapsPer𝜙          = kernel.tapsPer𝜙
     pfb               = kernel.pfb
     outLen            = size(output,2)
     history           = kernel.history
     histLen           = tapsPer𝜙-1
-    fftBuf            = Array{Tb}(Nchannels)
+    fftBuf            = Array{Tb}(undef, Nchannels)
 
     @assert size(x)         == size(output)
     @assert size(x,1)       == Nchannels
@@ -54,13 +55,13 @@ function filt!{Tb,Th,Tx}( output::Matrix{Tb}, kernel::Channelizer{Th, Tx}, x::Ma
     # initial segment using history from previous call
     @inbounds xh = [history x[:,1:histLen]]
     for s in 1:min(outLen, histLen)
-        @inbounds fftBuf[:] = flipdim(sum( xh[:,s:s+histLen] .* pfb, 2 ), 1)
+        @inbounds fftBuf[:] = reverse(sum( xh[:,s:s+histLen] .* pfb, dims=2 ), dims=1)
         @inbounds output[:,s] = fftshift(ifft(fftBuf))
     end
 
     # history-independent portion
     for s in histLen+1:outLen
-        # @inbounds fftBuf[:] = flipdim(sum( x[:,s-histLen:s] .* pfb, 2 ), 1)
+        # @inbounds fftBuf[:] = reverse(sum( x[:,s-histLen:s] .* pfb, dims=2 ), dims=1)
         @simd for k in 1:Nchannels
             fftElem = zero(Tb)
             
@@ -80,7 +81,7 @@ function filt!{Tb,Th,Tx}( output::Matrix{Tb}, kernel::Channelizer{Th, Tx}, x::Ma
     return output
 end
 
-function filt{Th,Tx}( kernel::Channelizer{Th, Tx}, x::Vector{Tx} )
+function filt( kernel::Channelizer{Th, Tx}, x::Vector{Tx} ) where {Th,Tx}
     xLen   = length( x )
     @assert xLen % kernel.Nchannels == 0
     xm = reshape(x, kernel.Nchannels, Int(xLen/kernel.Nchannels));

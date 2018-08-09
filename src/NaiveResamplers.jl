@@ -1,4 +1,5 @@
 module NaiveResamplers
+using DSP
 export naivefilt
 
 # Naive rational resampler
@@ -13,7 +14,7 @@ function naivefilt( h::Vector, x::Vector, resamplerate::Rational = 1//1 )
         xZeroStuffed[ n*upfactor+1 ] = x[ n+1 ]
     end
 
-    y = Base.filt( h, 1.0, xZeroStuffed )
+    y = filt( h, 1.0, xZeroStuffed )
     y = [ y[n] for n = 1:downfactor:length( y ) ]
 end
 

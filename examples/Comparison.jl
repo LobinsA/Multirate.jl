@@ -9,7 +9,7 @@ numTaps       = 24*interpolation
 x             = rand( 1_000_000 )
 h             = Multirate.firdes( numTaps, 0.5/interpolation, Multirate.kaiser, beta = 7.8562  )
 
-function naiveresampler{T}( h::Vector{T}, x::Vector{T}, ratio::Rational{Int} )
+function naiveresampler( h::Vector{T}, x::Vector{T}, ratio::Rational{Int} ) where T
     upfactor   = numerator( ratio )
     downfactor = denominator( ratio )
     xStuffed   = zeros( T, length(x) * upfactor )

@@ -1,5 +1,6 @@
+using Printf
 
-type ArbResamplerState
+mutable struct ArbResamplerState
     rate::Float64
     N𝜙::Int
     Δ::Float64
@@ -43,11 +44,9 @@ end
 resamp = 2
 N𝜙     = 10
 yCount = 0
-xCount = 0
 self   = ArbResamplerState( resamp, N𝜙 )
 
-while xCount < 11
-    xCount += 1
+for xCount in 1:10
     @printf( "%d:\tcounter = %f, 𝜙Accumulator = %f, 𝜙IdxVirtual = %f, 𝜙Idx = %d, δ = %f\n", xCount, self.counter, self.𝜙Accumulator, self.𝜙IdxVirtual, self.𝜙Idx, self.δ)
     update( self )
 end

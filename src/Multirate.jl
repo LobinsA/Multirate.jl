@@ -1,6 +1,7 @@
 module Multirate
 
-import Base: filt, filt!, reset
+import Base: reset
+import DSP: filt, filt!
 import Polynomials: Poly, polyval
 
 using DSP.Windows

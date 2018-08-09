@@ -30,12 +30,12 @@ kernel.inputDeficit += throwaway
 setphase( myfilter, phase )
 
 y                 = filt( myfilter, x )                          # Filter x
-yTime             = (0.0:length(y)-1)/resampleRatio + δout       # Create y time vector. Accout for filter delay so the plots line up
+yTime             = (0.0:length(y)-1)/resampleRatio .+ δout      # Create y time vector. Accout for filter delay so the plots line up
 
 
 
 
-figure(num=1, figsize=(10, 10/golden), dpi=100, facecolor="w", edgecolor="k" )
+figure(num=1, figsize=(10, 10/MathConstants.golden), dpi=100, facecolor="w", edgecolor="k" )
 clf()
 rc( "font", size=10 )
 suptitle( "Farrow Filter Resampling, ratio = $(resampleRatio)" )

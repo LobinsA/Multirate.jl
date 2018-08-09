@@ -1,6 +1,7 @@
+import DSP
 import Multirate
 import Multirate: NaiveResamplers
-using Base.Test
+using Test
 
 Tx           = Float32
 Th           = Float32

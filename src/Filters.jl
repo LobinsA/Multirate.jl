@@ -1,3 +1,4 @@
+
 #==============================================================================#
 #       ___ _   _ ___  ____ ____      /    ____ ____ _  _ ____ ___ ____        #
 #        |   \_/  |__] |___ [__      /     |    |  | |\ | [__   |  |__/        #
@@ -12,20 +13,20 @@ abstract type FIRKernel end
 # TODO: all kernels: add field original taps
 
 # Single rate FIR kernel
-type FIRStandard{T} <: FIRKernel
+struct FIRStandard{T} <: FIRKernel
     h::Vector{T}
     hLen::Int
 end
 
 function FIRStandard( h::Vector )
-    h    = flipdim( h, 1 )
+    h    = reverse( h, dims=1 )
     hLen = length( h )
     FIRStandard( h, hLen )
 end
 
 
 # Interpolator FIR kernel
-type FIRInterpolator{T} <: FIRKernel
+mutable struct FIRInterpolator{T} <: FIRKernel
     pfb::PFB{T}
     interpolation::Int
     N𝜙::Int
@@ -42,7 +43,7 @@ end
 
 
 # Decimator FIR kernel
-type FIRDecimator{T} <: FIRKernel
+mutable struct FIRDecimator{T} <: FIRKernel
     h::Vector{T}
     hLen::Int
     decimation::Int
@@ -50,7 +51,7 @@ type FIRDecimator{T} <: FIRKernel
 end
 
 function FIRDecimator( h::Vector, decimation::Integer )
-    h            = flipdim( h, 1 )
+    h            = reverse( h, dims=1 )
     hLen         = length( h )
     decimation   = decimation
     inputDeficit = 1
@@ -59,7 +60,7 @@ end
 
 
 # Rational resampler FIR kernel
-type FIRRational{T}  <: FIRKernel
+mutable struct FIRRational{T}  <: FIRKernel
     pfb::PFB{T}
     ratio::Rational{Int}
     N𝜙::Int
@@ -88,7 +89,7 @@ end
 # when where's at the last polphase branch and the last available input sample. By using
 # a derivitive filter, we can always compute the output in that scenario.
 # See section 7.6.1 in [1] for a better explanation.
-type FIRArbitrary{T} <: FIRKernel # TODO: since farrow is also arbitrary, find a new name
+mutable struct FIRArbitrary{T} <: FIRKernel # TODO: since farrow is also arbitrary, find a new name
     rate::Float64
     pfb::PFB{T}
     dpfb::PFB{T}
@@ -102,7 +103,7 @@ type FIRArbitrary{T} <: FIRKernel # TODO: since farrow is also arbitrary, find a
     xIdx::Int
 end
 
-function FIRArbitrary{T <: Number}( h::Vector{T}, rate::Real, N𝜙::Integer )
+function FIRArbitrary( h::Vector{T}, rate::Real, N𝜙::Integer ) where {T <: Number}
     dh           = [ diff( h ); zero(T) ]
     pfb          = taps2pfb( h,  N𝜙 )
     dpfb         = taps2pfb( dh, N𝜙 )
@@ -120,7 +121,7 @@ end
 # Farrow filter kernel.
 # Takes a polyphase filterbank and converts each row of taps into a polynomial.
 # That we can calculate filter tap values for any arbitrary 𝜙Idx, not just integers between 1 and N𝜙
-type FIRFarrow{T} <: FIRKernel
+mutable struct FIRFarrow{T} <: FIRKernel
     rate::Float64
     pfb::PFB{T}
     pnfb::PNFB{T}
@@ -134,7 +135,7 @@ type FIRFarrow{T} <: FIRKernel
     xIdx::Int
 end
 
-function FIRFarrow{T}( h::Vector{T}, rate::Real, N𝜙::Integer, polyorder::Integer )
+function FIRFarrow( h::Vector{T}, rate::Real, N𝜙::Integer, polyorder::Integer ) where T
     pfb          = taps2pfb( h,  N𝜙 )
     pnfb         = pfb2pnfb( pfb, polyorder )
     tapsPer𝜙     = size( pfb )[1]
@@ -148,7 +149,7 @@ end
 
 
 # FIRFilter - the kernel does the heavy lifting
-type FIRFilter{Tk<:FIRKernel} <: Filter
+mutable struct FIRFilter{Tk<:FIRKernel} <: Filter
     kernel::Tk
     history::Vector
     historyLen::Int
@@ -281,12 +282,12 @@ end
 #
 #  In this example, the first phase, or 𝜙, is [9, 5, 1].
 
-function taps2pfb{T}( h::Vector{T}, N𝜙::Integer )
+function taps2pfb( h::Vector{T}, N𝜙::Integer ) where T
     hLen     = length( h )
     stuffed  = [ h; zeros(T, mod(-hLen, N𝜙))]
     h2       = reshape(stuffed, N𝜙, :)
     
-    return flipdim(h2.', 1)
+    return reverse(transpose(h2), dims=1)
 end
 
 
@@ -300,9 +301,9 @@ end
 
 # Convert a polyphase filterbank into a polynomial filterbank
 
-function pfb2pnfb{T}( pfb::PFB{T}, polyorder::Integer )
+function pfb2pnfb( pfb::PFB{T}, polyorder::Integer ) where T
     (tapsPer𝜙, N𝜙) = size( pfb )
-    result         = Array{Poly{T}}( tapsPer𝜙 )
+    result         = Array{Poly{T}}( undef, tapsPer𝜙 )
 
     for i in 1:tapsPer𝜙
         row = vec( pfb[i,:] )
@@ -312,7 +313,7 @@ function pfb2pnfb{T}( pfb::PFB{T}, polyorder::Integer )
     return result
 end
 
-function taps2pnfb{T}( h::Vector{T}, N𝜙::Integer, polyorder::Integer )
+function taps2pnfb( h::Vector{T}, N𝜙::Integer, polyorder::Integer ) where T
     hLen     = length( h )
     tapsPer𝜙 = ceil( Int, hLen/N𝜙 )
     pnfb     = Array{Poly{T}}( tapsPer𝜙 )
@@ -439,7 +440,7 @@ end
 #               ___] | | \| |__] |___ |___    |  \ |  |  |  |___               #
 #==============================================================================#
 
-function filt!{Tb,Th,Tx}( buffer::Vector{Tb}, self::FIRFilter{FIRStandard{Th}}, x::Vector{Tx} )
+function filt!( buffer::Vector{Tb}, self::FIRFilter{FIRStandard{Th}}, x::Vector{Tx} ) where {Tb,Th,Tx}
     kernel              = self.kernel
     history::Vector{Tx} = self.history
     hLen                = kernel.hLen
@@ -464,8 +465,8 @@ function filt!{Tb,Th,Tx}( buffer::Vector{Tb}, self::FIRFilter{FIRStandard{Th}}, 
     return buffer
 end
 
-function filt{Th,Tx}( self::FIRFilter{FIRStandard{Th}}, x::Vector{Tx} )
-    buffer = Array{promote_type(Th, Tx)}( length(x) )
+function filt( self::FIRFilter{FIRStandard{Th}}, x::Vector{Tx} ) where {Th,Tx}
+    buffer = Array{promote_type(Th, Tx)}( undef, length(x) )
     filt!( buffer, self, x )
 end
 
@@ -478,7 +479,7 @@ end
 #               | | \|  |  |___ |  \ |    |___ |__| |  |  |  |___              #
 #==============================================================================#
 
-function filt!{Tb,Th,Tx}( buffer::Vector{Tb}, self::FIRFilter{FIRInterpolator{Th}}, x::Vector{Tx} )
+function filt!( buffer::Vector{Tb}, self::FIRFilter{FIRInterpolator{Th}}, x::Vector{Tx} ) where {Tb,Th,Tx}
     kernel              = self.kernel
     history::Vector{Tx} = self.history
     interpolation       = kernel.interpolation
@@ -508,10 +509,10 @@ function filt!{Tb,Th,Tx}( buffer::Vector{Tb}, self::FIRFilter{FIRInterpolator{Th
     return buffer
 end
 
-function filt{Th,Tx}( self::FIRFilter{FIRInterpolator{Th}}, x::Vector{Tx} )
+function filt( self::FIRFilter{FIRInterpolator{Th}}, x::Vector{Tx} ) where {Th,Tx}
     xLen   = length( x )
     outlen = outputlength( self, xLen )
-    buffer = Array{promote_type(Th,Tx)}( outlen )
+    buffer = Array{promote_type(Th,Tx)}( undef, outlen )
     filt!( buffer, self, x )
     return buffer
 end
@@ -525,7 +526,7 @@ end
 #           |  \ |  |  |  .   |  \ |___ ___] |  | |  | |    |___ |___          #
 #==============================================================================#
 
-function filt!{Tb,Th,Tx}( buffer::Vector{Tb}, self::FIRFilter{FIRRational{Th}}, x::Vector{Tx} )
+function filt!( buffer::Vector{Tb}, self::FIRFilter{FIRRational{Th}}, x::Vector{Tx} ) where {Tb,Th,Tx}
     kernel              = self.kernel
     history::Vector{Tx} = self.history
     xLen                = length( x )
@@ -566,11 +567,11 @@ function filt!{Tb,Th,Tx}( buffer::Vector{Tb}, self::FIRFilter{FIRRational{Th}}, 
     return bufIdx
 end
 
-function filt{Th,Tx}( self::FIRFilter{FIRRational{Th}}, x::Vector{Tx} )
+function filt( self::FIRFilter{FIRRational{Th}}, x::Vector{Tx} ) where {Th,Tx}
     kernel         = self.kernel
     xLen           = length( x )
     bufLen         = outputlength( self, xLen )
-    buffer         = Array{promote_type(Th,Tx)}( bufLen )
+    buffer         = Array{promote_type(Th,Tx)}( undef, bufLen )
     samplesWritten = filt!( buffer, self, x )
 
     samplesWritten == bufLen || resize!( buffer, samplesWritten)
@@ -587,7 +588,7 @@ end
 #                      |__/ |___ |___ | |  | |  |  |  |___                     #
 #==============================================================================#
 
-function filt!{Tb,Th,Tx}( buffer::Vector{Tb}, self::FIRFilter{FIRDecimator{Th}}, x::Vector{Tx} )
+function filt!( buffer::Vector{Tb}, self::FIRFilter{FIRDecimator{Th}}, x::Vector{Tx} ) where {Tb,Th,Tx}
     kernel = self.kernel
     xLen   = length( x )
 
@@ -622,7 +623,7 @@ function filt!{Tb,Th,Tx}( buffer::Vector{Tb}, self::FIRFilter{FIRDecimator{Th}},
     return yIdx
 end
 
-function filt{Th,Tx}( self::FIRFilter{FIRDecimator{Th}}, x::Vector{Tx} )
+function filt( self::FIRFilter{FIRDecimator{Th}}, x::Vector{Tx} ) where {Th,Tx}
     kernel = self.kernel
     xLen   = length( x )
     Tb     = promote_type( Th, Tx)
@@ -635,7 +636,7 @@ function filt{Th,Tx}( self::FIRFilter{FIRDecimator{Th}}, x::Vector{Tx} )
     end
 
     outLen = outputlength( self, xLen )
-    buffer = Array{Tb}( outLen )
+    buffer = Array{Tb}( undef, outLen )
     filt!( buffer, self, x )
 
     return buffer
@@ -666,7 +667,7 @@ end
 
 
 # Generates a vector of filter taps for an arbitrary phase index.
-function tapsforphase!{T}( buffer::Vector{T}, kernel::FIRArbitrary{T}, phase::Real )
+function tapsforphase!( buffer::Vector{T}, kernel::FIRArbitrary{T}, phase::Real ) where {T}
     0 <= phase <= kernel.N𝜙 + 1         || error( "phase must be >= 0 and <= N𝜙+1" )
     length( buffer ) >= kernel.tapsPer𝜙 || error( "buffer is too small" )
 
@@ -679,10 +680,12 @@ function tapsforphase!{T}( buffer::Vector{T}, kernel::FIRArbitrary{T}, phase::Re
     buffer
 end
 
-tapsforphase{T}( kernel::FIRArbitrary{T}, phase::Real ) = tapsforphase!( Array{T}(kernel.tapsPer𝜙), kernel, phase )
+function tapsforphase( kernel::FIRArbitrary{T}, phase::Real ) where {T}
+    tapsforphase!( Array{T}(kernel.tapsPer𝜙), kernel, phase )
+end
 
 
-function filt!{Tb,Th,Tx}( buffer::Vector{Tb}, self::FIRFilter{FIRArbitrary{Th}}, x::Vector{Tx} )
+function filt!( buffer::Vector{Tb}, self::FIRFilter{FIRArbitrary{Th}}, x::Vector{Tx} ) where {Tb,Th,Tx}
     kernel              = self.kernel
     pfb                 = kernel.pfb
     dpfb                = kernel.dpfb
@@ -733,9 +736,9 @@ function filt!{Tb,Th,Tx}( buffer::Vector{Tb}, self::FIRFilter{FIRArbitrary{Th}},
     return bufIdx
 end
 
-function filt{Th,Tx}( self::FIRFilter{FIRArbitrary{Th}}, x::Vector{Tx} )
+function filt( self::FIRFilter{FIRArbitrary{Th}}, x::Vector{Tx} ) where {Th,Tx}
     bufLen         = outputlength( self, length(x) )
-    buffer         = Array{promote_type(Th,Tx)}( bufLen )
+    buffer         = Array{promote_type(Th,Tx)}( undef, bufLen )
     samplesWritten = filt!( buffer, self, x )
 
     samplesWritten == bufLen || resize!( buffer, samplesWritten)
@@ -753,7 +756,7 @@ end
 #==============================================================================#
 
 # Generates a vector of filter taps for an arbitray (non-integer) phase index using polynomials
-function tapsforphase!{T}( buffer::Vector{T}, kernel::FIRFarrow{T}, phase::Real )
+function tapsforphase!( buffer::Vector{T}, kernel::FIRFarrow{T}, phase::Real ) where {T}
     0 <= phase <= kernel.N𝜙 + 1         || error( "phase must be >= 0 and <= N𝜙+1" )
     length( buffer ) >= kernel.tapsPer𝜙 || error( "buffer is too small" )
 
@@ -764,7 +767,9 @@ function tapsforphase!{T}( buffer::Vector{T}, kernel::FIRFarrow{T}, phase::Real 
     return buffer
 end
 
-tapsforphase{T}( kernel::FIRFarrow{T}, phase::Real ) = tapsforphase!( Array{T}(kernel.tapsPer𝜙), kernel, phase )
+function tapsforphase( kernel::FIRFarrow{T}, phase::Real ) where {T}
+    tapsforphase!( Array{T}(kernel.tapsPer𝜙), kernel, phase )
+end
 
 
 # Updates farrow filter state.
@@ -784,7 +789,7 @@ function update( kernel::FIRFarrow )
 end
 
 
-function filt!{Tb,Th,Tx}( buffer::Vector{Tb}, self::FIRFilter{FIRFarrow{Th}}, x::Vector{Tx} )
+function filt!( buffer::Vector{Tb}, self::FIRFilter{FIRFarrow{Th}}, x::Vector{Tx} ) where {Tb,Th,Tx}
     kernel              = self.kernel
     xLen                = length( x )
     bufIdx              = 0
@@ -827,9 +832,9 @@ function filt!{Tb,Th,Tx}( buffer::Vector{Tb}, self::FIRFilter{FIRFarrow{Th}}, x:
     return bufIdx
 end
 
-function filt{Th,Tx}( self::FIRFilter{FIRFarrow{Th}}, x::Vector{Tx} )
+function filt( self::FIRFilter{FIRFarrow{Th}}, x::Vector{Tx} ) where {Th,Tx}
     bufLen         = outputlength( self, length(x) )
-    buffer         = Array{promote_type(Th,Tx)}( bufLen )
+    buffer         = Array{promote_type(Th,Tx)}( undef, bufLen )
     samplesWritten = filt!( buffer, self, x )
 
     samplesWritten == bufLen || resize!( buffer, samplesWritten)

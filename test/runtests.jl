@@ -1,4 +1,4 @@
-using Base.Test
+using Test
 import Multirate
 import DSP
 import Multirate.NaiveResamplers
@@ -36,10 +36,10 @@ function test_singlerate( h, x; atol = 0 )
     @printf( "___] | | \\| |__] |___ |___    |  \\ |  |  |  |___\n" )
     @printf( "\nTesting single-rate fitering, h is %s, x is %s. xLen = %d, hLen = %d", string(eltype(h)), string(eltype(x)), xLen, hLen )
 
-    @printf( "\n\tBase.filt\n\t\t")
-    @time baseResult = Base.filt( h, 1.0, x )
+    @printf( "\n\tDSP.filt\n\t\t")
+    @time baseResult = DSP.filt( h, 1.0, x )
 
-    if method_exists( DSP.filt, ( typeof(h), typeof(x) ))
+    if hasmethod( DSP.filt, ( typeof(h), typeof(x) ))
         @printf( "\n\tDSP.filt\n\t\t")
         @time dspResult = DSP.filt( h, x )
     end
@@ -98,13 +98,13 @@ function test_decimation( h, x, decimation; atol=0 )
     @printf( "|__/ |___ |___ | |  | |  |  |  | |__| | \\| \n" )
     @printf( "\nTesting decimation. h::%s, x::%s. xLen = %d, hLen = %d, decimation = %d", string(typeof(h)), string(typeof(h)), xLen, hLen, decimation )
 
-    @printf( "\n\tNaive decimation with Base.filt\n\t\t")
+    @printf( "\n\tNaive decimation with DSP.filt\n\t\t")
     @time begin
-        baseResult   = Base.filt( h, one(eltype(h)), x )
+        baseResult   = DSP.filt( h, one(eltype(h)), x )
         baseResult   = baseResult[1:decimation:end]
     end
 
-    if method_exists( DSP.filt, ( typeof(h), typeof(x) ))
+    if hasmethod( DSP.filt, ( typeof(h), typeof(x) ))
         @printf( "\n\tNaive decimation with DSP.filt\n\t\t")
         @time begin
             dspResult = DSP.filt( h, x )
@@ -167,16 +167,16 @@ function test_interpolation( h, x, interpolation; atol::Real = 0 )
     @printf( "| | \\|  |  |___ |  \\ |    |___ |__| |  |  |  | |__| | \\| \n" )
     @printf( "\nTesting interpolation, h::%s, x::%s. xLen = %d, hLen = %d, interpolation = %d", typeof(h), typeof(x), xLen, hLen, interpolation )
 
-    @printf( "\n\tNaive interpolation with Base.filt\n\t\t")
+    @printf( "\n\tNaive interpolation with DSP.filt\n\t\t")
     @time begin
         xZeroStuffed = zeros( eltype(x), xLen * interpolation )
         for n = 0:xLen-1;
             xZeroStuffed[ n*interpolation+1 ] = x[ n+1 ]
         end
-        baseResult = Base.filt( h, one(eltype(h)), xZeroStuffed )
+        baseResult = DSP.filt( h, one(eltype(h)), xZeroStuffed )
     end
 
-    if method_exists( DSP.filt, ( typeof(h), typeof(x) ))
+    if hasmethod( DSP.filt, ( typeof(h), typeof(x) ))
         @printf( "\n\tNaive interpolation with DSP.filt\n\t\t")
         @time begin
             xZeroStuffed = zeros( eltype(x), xLen * interpolation )
@@ -247,24 +247,24 @@ function test_rational( h, x, ratio )
     @printf( "|  \\ |___ ___] |  | |  | |    |___ | | \\| |__]\n" )
     @printf( "\n\nTesting rational resampling, h::%s, x::%s. xLen = %d, hLen = %d, ratio = %d//%d", string(typeof(h)), string(typeof(x)), xLen, hLen, upfactor, downfactor )
 
-    @printf( "\n\tNaive rational resampling with Base.filt\n\t\t")
+    @printf( "\n\tNaive rational resampling with DSP.filt\n\t\t")
     @time begin
         xStuffed   = zeros( resultType, length(x) * upfactor )
-        baseResult = Array{resultType}( ceil( Int, length(x) * ratio ))
+        baseResult = Array{resultType}( undef, ceil( Int, length(x) * ratio ))
 
         for n = 0:length(x)-1;
             xStuffed[ n*upfactor+1 ] = x[ n+1 ]
         end
 
-        baseResult = Base.filt( h, one(eltype(h)), xStuffed );
+        baseResult = DSP.filt( h, one(eltype(h)), xStuffed );
         baseResult = [ baseResult[n] for n = 1:downfactor:length( baseResult ) ]
     end
 
-    if method_exists( DSP.filt, ( typeof(h), typeof(x) ))
+    if hasmethod( DSP.filt, ( typeof(h), typeof(x) ))
         @printf( "\n\tNaive rational resampling DSP.filt\n\t\t")
         @time begin
             xStuffed  = zeros( resultType, length(x) * upfactor )
-            dspResult = Array{resultType}( ceil( Int, length(x) * ratio ))
+            dspResult = Array{resultType}( undef, ceil( Int, length(x) * ratio ))
 
             for n = 0:length(x)-1;
                 xStuffed[ n*upfactor+1 ] = x[ n+1 ]
@@ -338,7 +338,7 @@ function test_arbitrary( Th, x, resampleRate, numFilters; atol=0 )
     piecewiseResult = eltype(x)[]
     sizehint!( piecewiseResult, ceil( Int, length(x)*resampleRate ) )
     @time for i in 1:length( x )
-        thisY = filt( self, x[i:i] )
+        thisY = DSP.filt( self, x[i:i] )
         append!( piecewiseResult, thisY )
     end
 
@@ -372,7 +372,7 @@ function test_all()
     for interpolation in sort([1; unique(rand(2:32,8))] ),
             decimation in sort([1; unique(rand(2:32,8))] ),
                 Th in [Float32, Float64],
-                    Tx in [Float32, Float64, Complex64, Complex128]
+                    Tx in [Float32, Float64, ComplexF32, ComplexF64]
 
         h     = rand(Th, rand(16:128,1)[1] )
         xLen  = Int(rand( 200:300, 1 )[1])
@@ -395,7 +395,7 @@ function test_all()
 
         if numerator(ratio) == interpolation && denominator(ratio) == decimation && numerator(ratio) != 1 && denominator(ratio) != 1
             @test test_rational( h, x, ratio )
-            if Tx in [ Float32, Complex64 ]
+            if Tx in [ Float32, ComplexF32 ]
                 @test test_arbitrary( Th, x, Float64(ratio)+rand(), 32 )
             end
         end
@@ -408,7 +408,7 @@ function test_nextphase()
             ratio           = interpolation//decimation
             interpolation   = numerator(ratio)
             decimation      = denominator(ratio)
-            x               = repmat( (1:interpolation), decimation )
+            x               = repeat( (1:interpolation), decimation )
             reference = [ x[n] for n in 1:decimation:length( x ) ]
             result = [ 1 ]
             for i in 2:interpolation

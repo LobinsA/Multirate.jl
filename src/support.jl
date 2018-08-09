@@ -13,7 +13,7 @@ function unsafedot( a::Matrix, aColIdx::Integer, b::Vector, bLastIdx::Integer )
     return dotprod
 end
 
-function unsafedot{T}( a::Matrix, aColIdx::Integer, b::Vector{T}, c::Vector{T}, cLastIdx::Integer )
+function unsafedot( a::Matrix, aColIdx::Integer, b::Vector{T}, c::Vector{T}, cLastIdx::Integer ) where T
     aLen = size(a)[1]
     bLen = length(b)
     bLen == aLen-1  || error( "length(b) must equal to length(a)[1] - 1" )
@@ -41,7 +41,7 @@ function unsafedot( a::Vector, b::Vector, bLastIdx::Integer )
     return dotprod
 end
 
-function unsafedot{T}( a::Vector, b::Vector{T}, c::Vector{T}, cLastIdx::Integer )
+function unsafedot( a::Vector, b::Vector{T}, c::Vector{T}, cLastIdx::Integer ) where T
     aLen    = length(a)
     dotprod = zero(a[1]*b[1])
     @simd for i in 1:aLen-cLastIdx
@@ -58,12 +58,12 @@ end
 
 # Shifts b into the end a.
 # a = [ a, b ][1:length(a)]
-function shiftin!{T}( a::Vector{T}, b::Vector{T} )
+function shiftin!( a::Vector{T}, b::Vector{T} ) where T
     aLen = length( a )
     bLen = length( b )
 
     if bLen >= aLen
-        copy!( a, 1, b, bLen - aLen + 1, aLen )
+        copyto!( a, 1, b, bLen - aLen + 1, aLen )
     else
 
         for i in 1:aLen-bLen
@@ -79,7 +79,7 @@ function shiftin!{T}( a::Vector{T}, b::Vector{T} )
     return a
 end
 
-function shiftin!{T}( dst::Matrix{T}, src::Matrix{T} )
+function shiftin!( dst::Matrix{T}, src::Matrix{T} ) where T
     @assert size( dst, 1 ) == size( src, 1 )
     width = size( dst, 1 )
     
@@ -87,9 +87,9 @@ function shiftin!{T}( dst::Matrix{T}, src::Matrix{T} )
     srcLen = size( src, 2 )
 
     if srcLen >= dstLen
-        srcRange = CartesianRange(CartesianIndex(1, srcLen - dstLen + 1), CartesianIndex(width, srcLen))
-        dstRange = CartesianRange(CartesianIndex(1, 1),                   CartesianIndex(width, dstLen))
-        copy!( dst, dstRange, src, srcRange )
+        srcRange = CartesianIndices((1:width, srcLen-dstLen+1:srcLen))
+        dstRange = CartesianIndices((1:width, 1:dstLen))
+        copyto!( dst, dstRange, src, srcRange )
     else
 
         for i in 1:dstLen-srcLen
