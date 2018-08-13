@@ -19,6 +19,7 @@ mutable struct Channelizer{Th, Tx}
     Nchannels::Int
     tapsPer𝜙::Int
     history::Matrix{Tx}
+    ifft!_plan
 end
 
 function Channelizer( Tx, h::Vector{Th}, Nchannels::Integer ) where Th
@@ -26,7 +27,8 @@ function Channelizer( Tx, h::Vector{Th}, Nchannels::Integer ) where Th
     Nchannels = size( pfb )[1]
     tapsPer𝜙  = size( pfb )[2]
     history   = zeros(Tx, Nchannels, tapsPer𝜙 - 1)
-    Channelizer( pfb, h, Nchannels, tapsPer𝜙, history)
+    ifft!_plan = plan_ifft!(Array{promote_type(Tx,Th)}(undef, Nchannels))
+    Channelizer( pfb, h, Nchannels, tapsPer𝜙, history, ifft!_plan )
 end
 
 function Channelizer( Th, Tx, Nchannels::Integer, tapsPer𝜙 = 20 )
@@ -45,7 +47,6 @@ function filt!( output::Matrix{Tb}, kernel::Channelizer{Th, Tx}, x::Matrix{Tx} )
     outLen            = size(output,2)
     history           = kernel.history
     histLen           = tapsPer𝜙-1
-    fftBuf            = Array{Tb}(undef, Nchannels)
 
     @assert size(x)         == size(output)
     @assert size(x,1)       == Nchannels
@@ -54,14 +55,13 @@ function filt!( output::Matrix{Tb}, kernel::Channelizer{Th, Tx}, x::Matrix{Tx} )
 
     # initial segment using history from previous call
     @inbounds xh = [history x[:,1:histLen]]
-    for s in 1:min(outLen, histLen)
-        @inbounds fftBuf[:] = reverse(sum( xh[:,s:s+histLen] .* pfb, dims=2 ), dims=1)
-        @inbounds output[:,s] = fftshift(ifft(fftBuf))
+    @simd for s in 1:min(outLen, histLen)
+        @inbounds output[:,s] = reverse(sum( view(xh,:,s:s+histLen) .* pfb, dims=2 ), dims=1)
     end
 
     # history-independent portion
-    for s in histLen+1:outLen
-        # @inbounds fftBuf[:] = reverse(sum( x[:,s-histLen:s] .* pfb, dims=2 ), dims=1)
+    @simd for s in histLen+1:outLen
+#        @inbounds output[:,s] = reverse(sum( view(x,:,s-histLen:s) .* pfb, dims=2 ), dims=1)
         @simd for k in 1:Nchannels
             fftElem = zero(Tb)
             
@@ -69,10 +69,12 @@ function filt!( output::Matrix{Tb}, kernel::Channelizer{Th, Tx}, x::Matrix{Tx} )
                @inbounds fftElem += x[k, s-histLen+m] * pfb[k, 1+m]
             end
             
-            fftBuf[Nchannels+1-k] = fftElem
+            output[Nchannels+1-k,s] = fftElem
         end
-        
-        @inbounds output[:,s] = fftshift(ifft(fftBuf))
+    end
+
+    for s in 1:outLen
+        @inbounds kernel.ifft!_plan * view(output,:,s)
     end
 
     # set history for next call
