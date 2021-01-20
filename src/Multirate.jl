@@ -2,7 +2,7 @@ module Multirate
 
 import Base: reset
 import DSP: filt, filt!
-import Polynomials: Poly, polyval
+import Polynomials.PolyCompat: Poly, polyval
 
 using DSP.Windows
 export  hanning,
