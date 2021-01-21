@@ -79,7 +79,7 @@ function shiftin!( a::Vector{T}, b::Vector{T} ) where T
     return a
 end
 
-function shiftin!( dst::Matrix{T}, src::Matrix{T} ) where T
+function shiftin!( dst::AbstractMatrix{T}, src::AbstractMatrix{T} ) where T
     @assert size( dst, 1 ) == size( src, 1 )
     width = size( dst, 1 )
     

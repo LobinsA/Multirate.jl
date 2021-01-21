@@ -40,7 +40,7 @@ end
 
 
 
-function filt!( output::Matrix{Tb}, kernel::Channelizer{Th, Tx}, x::Matrix{Tx} ) where {Tb,Th,Tx}
+function filt!( output::Matrix{Tb}, kernel::Channelizer{Th, Tx}, x::AbstractMatrix{Tx} ) where {Tb,Th,Tx}
     Nchannels         = kernel.Nchannels
     tapsPer𝜙          = kernel.tapsPer𝜙
     pfb               = kernel.pfb
@@ -83,7 +83,7 @@ function filt!( output::Matrix{Tb}, kernel::Channelizer{Th, Tx}, x::Matrix{Tx} )
     return output
 end
 
-function filt( kernel::Channelizer{Th, Tx}, x::Vector{Tx} ) where {Th,Tx}
+function filt( kernel::Channelizer{Th, Tx}, x::AbstractVector{Tx} ) where {Th,Tx}
     xLen   = length( x )
     @assert xLen % kernel.Nchannels == 0
     xm = reshape(x, kernel.Nchannels, Int(xLen/kernel.Nchannels));
