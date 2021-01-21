@@ -54,7 +54,7 @@ function filt!( output::Matrix{Tb}, kernel::Channelizer{Th, Tx}, x::AbstractMatr
     @assert Tb              == promote_type(Th,Tx)
 
     # initial segment using history from previous call
-    @inbounds xh = [history x[:,1:histLen]]
+    xh = [history x[:,1:histLen]]
     @simd for s in 1:min(outLen, histLen)
         @inbounds output[:,s] = reverse(sum( view(xh,:,s:s+histLen) .* pfb, dims=2 ), dims=1)
     end
